@@ -1,0 +1,5 @@
+
+store_type: local
+store_path: test/prom-http-sd.db
+host: "0.0.0.0"
+port: 80
