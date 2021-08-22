@@ -1,0 +1,23 @@
+{
+    "london_node_exporter": {
+        "targets": ["10.0.10.2:9100", "10.0.10.3:9100", "10.0.10.4:9100", "10.0.10.5:9100"],
+        "labels": {
+            "__meta_datacenter": "london",
+            "__meta_prometheus_job": "node"
+        }
+    },
+    "london_alertmanager": {
+        "targets": ["10.0.40.1:9100", "10.0.40.2:9100", "10.0.40.3:9100"],
+        "labels": {
+            "__meta_datacenter": "london",
+            "__meta_prometheus_job": "alertmanager"
+        }
+    },
+    "newyork_web": {
+        "targets": ["10.0.40.2:80", "10.0.40.3:80", "10.0.40.4:80"],
+        "labels": {
+            "__meta_datacenter": "newyork",
+            "__meta_prometheus_job": "webservers"
+        }
+    }
+}
