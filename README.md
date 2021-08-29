@@ -56,9 +56,29 @@ Running the server:
 
 ## Building
 
+### 1. Checkout required code version
+
+First, ensure you have checked out the proper release tag in order to get all files/dependencies corresponding to that version. 
+
+### 2. Build Go binary
+
 Run `make build` to build the the binary for the current operatory system or run `make build-all` to build for both Linux and OSX.   Refer to the makefile for additional options.
+
+### 3. Build Docker container
+Run the following docker command to build the image
+```
+docker build -t $(cat VERSION.txt) --build-arg VERSION=$(cat VERSION.txt) .
+```
+
+## Pre-built Docker Images
+
+
 
 
 ## License
 
 Covered under the [MIT license](LICENSE.md).
+
+## Author
+
+Alain Lefebvre <hartfordfive 'at' gmail.com>

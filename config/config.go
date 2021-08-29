@@ -9,25 +9,17 @@ import (
 )
 
 type Config struct {
-	StoreType       string `yaml:"store_type" json:"store_type"`
-	TargetStorePath string `yaml:"store_path" json:"store_path"`
-	Host            string `yaml:"host" json:"host"`
-	Port            int    `yaml:"port" json:"port"`
+	StoreType           string               `yaml:"store_type" json:"store_type"`
+	Host                string               `yaml:"server_host" json:"server_host"`
+	Port                int                  `yaml:"server_port" json:"server_port"`
+	LocalDBConfig       *BoltDBConfig        `yaml:"local_config" json:"local_config"`
+	ConsulConfig        *ConsulConfig        `yaml:"consul_config" json:"consul_config"`
+	ElasticsearchConfig *ElasticsearchConfig `yaml:"elasticsearch_config" json:"elasticsearch_config"`
 }
 
-func newConfig() *Config {
-	c := &Config{
-		StoreType: "local",
-		Host:      "127.0.0.1",
-		Port:      80,
-	}
-	return c
-}
-
-func LoadConfig(filePath string) (*Config, error) {
-
-	c := newConfig()
-	b, err := ioutil.ReadFile(filePath)
+func NewConfig(configPath string) (*Config, error) {
+	c := &Config{}
+	b, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Could not read config: %s", err))
 	}
@@ -44,10 +36,19 @@ func LoadConfig(filePath string) (*Config, error) {
 	return c, nil
 }
 
+func (c *Config) Serialize() (string, error) {
+	if b, err := yaml.Marshal(c); err != nil {
+		return "", err
+	} else {
+		return string(b), nil
+	}
+}
+
 func (c *Config) validate() error {
-	validStoreType := map[string]bool{"local": true}
+	validStoreType := map[string]bool{"local": true, "consul": true}
 	if ok, _ := validStoreType[c.StoreType]; !ok {
 		return errors.New("Only the local data store is currently supported")
 	}
+
 	return nil
 }

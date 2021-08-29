@@ -195,15 +195,18 @@ var ShowDebugTargetsHandler = func(w http.ResponseWriter, req *http.Request) {
 }
 
 var ShowDebugConfigHandler = func(w http.ResponseWriter, req *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	modifiedData := map[string]interface{}{}
-	modifiedData["config"] = conf
-	response, err := json.MarshalIndent(modifiedData, " ", " ")
+	w.Header().Set("Content-Type", "application/yaml")
+	// modifiedData := map[string]interface{}{}
+	// modifiedData["config"] = conf
+	// response, err := json.MarshalIndent(modifiedData, " ", " ")
+
+	printCnf, err := conf.Serialize()
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	fmt.Fprintf(w, "%s\n", string(response))
+	fmt.Fprintf(w, "%s\n", printCnf)
 }
 
 // prometheusMiddleware implements mux.MiddlewareFunc.
@@ -232,22 +235,29 @@ func main() {
 
 	logger.Logger.Info("Starting prom-http-sd-server")
 
-	conf, err := config.LoadConfig(*flagConfPath)
+	conf, err := config.NewConfig(*flagConfPath)
 	if err != nil {
 		logger.Logger.Error(fmt.Sprintf("%s", err))
 		os.Exit(1)
 	}
 
-	logger.Logger.Debug("Initializing data store",
-		zap.String("config_path", conf.TargetStorePath),
-	)
+	if conf.LocalDBConfig != nil {
+		logger.Logger.Debug("Initializing data store",
+			zap.String("config_path", conf.LocalDBConfig.TargetStorePath),
+		)
+	}
 
 	interruptChan := make(chan os.Signal, 1)
 	shutdownChan := make(chan bool, 1)
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGTERM)
 
+	printCnf, _ := conf.Serialize()
+	fmt.Print(printCnf)
+
 	if conf.StoreType == "local" {
-		dataStore = store.NewBoltDBDataStore(conf.TargetStorePath, shutdownChan)
+		dataStore = store.NewBoltDBDataStore(conf.LocalDBConfig.TargetStorePath, shutdownChan)
+	} else if conf.StoreType == "consul" {
+		dataStore = store.NewConsulDataStore(conf.ConsulConfig.Host, shutdownChan)
 	} else {
 		logger.Logger.Error(fmt.Sprintf("%s data store not implemented.", conf.StoreType))
 		os.Exit(1)

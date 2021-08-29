@@ -1,5 +1,8 @@
 
-store_type: local
-store_path: test/prom-http-sd.db
-host: "0.0.0.0"
-port: 80
+store_type: consul # local, consul
+# local_config:
+#   store_path: test/prom-http-sd.db
+consul_config:
+  host: 127.0.0.1:8500
+server_host: "0.0.0.0"
+server_port: 80
