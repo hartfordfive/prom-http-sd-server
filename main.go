@@ -251,13 +251,10 @@ func main() {
 	shutdownChan := make(chan bool, 1)
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGTERM)
 
-	printCnf, _ := conf.Serialize()
-	fmt.Print(printCnf)
-
 	if conf.StoreType == "local" {
 		dataStore = store.NewBoltDBDataStore(conf.LocalDBConfig.TargetStorePath, shutdownChan)
 	} else if conf.StoreType == "consul" {
-		dataStore = store.NewConsulDataStore(conf.ConsulConfig.Host, shutdownChan)
+		dataStore = store.NewConsulDataStore(conf.ConsulConfig.Host, conf.ConsulConfig.AllowStale, shutdownChan)
 	} else {
 		logger.Logger.Error(fmt.Sprintf("%s data store not implemented.", conf.StoreType))
 		os.Exit(1)

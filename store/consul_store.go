@@ -12,9 +12,12 @@ import (
 )
 
 type ConsulStore struct {
-	client *consul.Client
-	kv     *consul.KV
+	client     *consul.Client
+	kv         *consul.KV
+	allowStale bool
 }
+
+var consulKVPrefix string = "prom-http-sd-server"
 
 /*******************************************/
 
@@ -77,8 +80,10 @@ func (l *ConsulLock) unlock() {
 
 /*****************************************/
 
-func NewConsulDataStore(consulHost string, shutdownNotify chan bool) *ConsulStore {
-	ds := &ConsulStore{}
+func NewConsulDataStore(consulHost string, allowStale bool, shutdownNotify chan bool) *ConsulStore {
+	ds := &ConsulStore{
+		allowStale: allowStale,
+	}
 
 	// Get a new client
 	client, err := consul.NewClient(&consul.Config{
@@ -96,26 +101,27 @@ func NewConsulDataStore(consulHost string, shutdownNotify chan bool) *ConsulStor
 }
 
 func (s *ConsulStore) getTargetKey(targetGroup, target string) string {
-	return strings.TrimPrefix(fmt.Sprintf("promHttpSD/targetGroup/%s", targetGroup), "/")
+	return strings.TrimPrefix(fmt.Sprintf("%s/targetGroup/%s", consulKVPrefix, targetGroup), "/")
+}
+func (s *ConsulStore) getLockKey(targetGroup, target string) string {
+	return strings.TrimPrefix(fmt.Sprintf("%s-lock/targetGroup/%s", consulKVPrefix, targetGroup), "/")
 }
 
 func (s *ConsulStore) AddTargetToGroup(targetGroup, target string) error {
 
-	lKey := strings.TrimPrefix(fmt.Sprintf("promHttpSDLock/targetGroup/%s", targetGroup), "/")
+	lKey := s.getLockKey(targetGroup, target)
 
-	logger.Logger.Info("Getting lock key",
+	logger.Logger.Debug("Getting lock key",
 		zap.String("key", lKey),
 	)
 	l, err := newLock(s.client, lKey)
 	if err != nil {
-		logger.Logger.Error("Could create new lock",
+		logger.Logger.Error("Could not create new lock",
 			zap.String("key", lKey),
 			zap.String("error", fmt.Sprintf("%s", err.Error())),
 		)
 	}
 	if err := l.lock(); err != nil {
-		fmt.Println("Error while trying to acquire lock:", err.Error())
-		return err
 		logger.Logger.Error("Could not acquire lock key",
 			zap.String("key", lKey),
 			zap.String("error", fmt.Sprintf("%s", err.Error())),
@@ -125,17 +131,25 @@ func (s *ConsulStore) AddTargetToGroup(targetGroup, target string) error {
 
 	key := s.getTargetKey(targetGroup, target)
 
-	pair, _, err := s.kv.Get(key, nil)
+	pair, _, err := s.kv.Get(key, &consul.QueryOptions{AllowStale: s.allowStale})
 	if err != nil {
+		logger.Logger.Error("Could not get target group key",
+			zap.String("key", key),
+			zap.String("error", fmt.Sprintf("%s", err.Error())),
+		)
 		panic(err)
 	}
 
-	var tg TargetGroup
+	tg := &TargetGroup{}
 
 	if pair != nil {
-		json.Unmarshal(pair.Value, tg)
 
-		fmt.Printf("Target: %+v", tg)
+		if err := json.Unmarshal(pair.Value, tg); err != nil {
+			logger.Logger.Error("Could not unserialize target group data from consul KV store",
+				zap.String("error", err.Error()),
+			)
+		}
+
 		// Don't add if it's already in the list of targetGroup targets
 		if lib.Contains(tg.Targets, target) {
 			logger.Logger.Info("Target group already contains target",
@@ -147,12 +161,11 @@ func (s *ConsulStore) AddTargetToGroup(targetGroup, target string) error {
 	}
 
 	tg.Targets = append(tg.Targets, target)
-
 	b, err := json.Marshal(tg)
 
-	logger.Logger.Info("Adding target to consul kv ",
+	logger.Logger.Debug("Adding target to consul kv ",
 		zap.String("target", target),
-		zap.String("kv_path", key),
+		zap.String("key", key),
 	)
 	p := &consul.KVPair{Key: key, Value: b}
 	_, err = s.kv.Put(p, nil)
@@ -183,14 +196,32 @@ func (s *ConsulStore) RemoveLabelFromGroup(targetGroup, label string) error {
 
 func (s *ConsulStore) Serialize(debug bool) (string, error) {
 
-	// Lookup the pair
-	pair, _, err := s.kv.Get("REDIS_MAXCLIENTS", nil)
+	logger.Logger.Info("Getting keys with prefix ",
+		zap.String("prefix", consulKVPrefix),
+	)
+	keys, _, err := s.kv.Keys(consulKVPrefix, "", &consul.QueryOptions{AllowStale: s.allowStale})
 	if err != nil {
-		panic(err)
+		return "", nil
 	}
-	fmt.Printf("KV: %v %s\n", pair.Key, pair.Value)
 
-	return "", nil
+	data := []TargetGroup{}
+
+	for _, k := range keys {
+		logger.Logger.Info("Got key",
+			zap.String("key", k),
+		)
+		pair, meta, err := s.kv.Get(k, &consul.QueryOptions{AllowStale: s.allowStale})
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Printf("Target raw: %+v\n", string(pair.Value))
+		fmt.Printf("Target meta: %+v\n", meta)
+
+	}
+
+	res, _ := json.MarshalIndent(data, "", "    ")
+	return string(res), nil
 }
 
 func (s *ConsulStore) Shutdown() {
