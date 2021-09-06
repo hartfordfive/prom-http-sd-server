@@ -8,6 +8,8 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+var GlobalConfig *Config
+
 type Config struct {
 	StoreType           string               `yaml:"store_type" json:"store_type"`
 	Host                string               `yaml:"server_host" json:"server_host"`

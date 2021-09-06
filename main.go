@@ -2,18 +2,17 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/hartfordfive/prom-http-sd-server/config"
+	"github.com/hartfordfive/prom-http-sd-server/handler"
 	"github.com/hartfordfive/prom-http-sd-server/lib"
 	"github.com/hartfordfive/prom-http-sd-server/logger"
 	"github.com/hartfordfive/prom-http-sd-server/store"
@@ -31,40 +30,16 @@ var (
 		Name: "httpsdserver_req_duration_seconds",
 		Help: "Duration of HTTP requests.",
 	}, []string{"path"})
-	metricTargetGroupUpdates = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "httpsdserver_target_group_updates",
-		Help: "Number of times a target group has been updated.",
-	})
-	metricTargetGroupUpdatesFailed = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "httpsdserver_target_group_updates_failed",
-		Help: "Number of times a target group updated failed",
-	})
-
-	metricTargetRemove = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "httpsdserver_target_delete",
-		Help: "Number of times a target was deleted",
-	})
-	metricTargetRemoveFailed = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "httpsdserver_target_delete_failed",
-		Help: "Number of times the deletion of a target failed",
-	})
-
-	metricTargetGroupLabelsUpdates = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "httpsdserver_target_group_labels_updates",
-		Help: "Number of times the labels of a target group has been updated.",
-	})
-	metricTargetGroupLabelsUpdatesFailed = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "httpsdserver_target_group_labels_updates_failed",
-		Help: "Number of times an update to the labels of a target group has failed.",
-	})
 )
 
 var (
-	flagConfPath *string
-	flagDebug    *bool
-	flagVersion  *bool
-	log          *zap.Logger
-	conf         *config.Config
+	flagConfPath  *string
+	flagDebug     *bool
+	flagVersion   *bool
+	log           *zap.Logger
+	conf          *config.Config
+	shutdownChan  chan bool
+	interruptChan chan os.Signal
 )
 
 func init() {
@@ -94,119 +69,39 @@ func init() {
 	logger.Logger = log
 	defer logger.Logger.Sync()
 
-}
+	if *flagVersion {
+		fmt.Printf("prom-http-sd-server %s (Git hash: %s)\n", version.Version, version.CommitHash)
+		fmt.Printf("\tauthor: %s\n", version.Author)
+		os.Exit(0)
+	}
 
-var HealthHandler = func(w http.ResponseWriter, req *http.Request) {
-	/*
-		TO COMPLETE:
-		This handler should only return OK if the underlying datastore is ready to accept connections
-	*/
-	fmt.Fprint(w, "OK\n")
-}
+	if !lib.FileExists(*flagConfPath) {
+		logger.Logger.Error(fmt.Sprintf("Error: Configuration '%s' not found\n", *flagConfPath))
+		os.Exit(1)
+	}
 
-var AddTargetHandler = func(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	target := vars["target"]
-	targetGroup := vars["targetGroup"]
+	interruptChan = make(chan os.Signal, 1)
+	shutdownChan = make(chan bool, 1)
+	signal.Notify(interruptChan, os.Interrupt, syscall.SIGTERM)
 
-	logger.Logger.Debug(fmt.Sprintf("Adding target %s to target list %s\n", target, targetGroup))
-	if err := dataStore.AddTargetToGroup(targetGroup, target); err != nil {
-		metricTargetGroupUpdatesFailed.Inc()
+	var errStore error
+	if conf.StoreType == "local" {
+		dataStore = store.NewBoltDBDataStore(conf.LocalDBConfig.TargetStorePath, shutdownChan)
+	} else if conf.StoreType == "consul" {
+		fmt.Println(conf.ConsulConfig.Host)
+		dataStore, errStore = store.NewConsulDataStore(conf.ConsulConfig.Host, conf.ConsulConfig.AllowStale, shutdownChan)
+		if errStore != nil {
+			logger.Logger.Error(fmt.Sprintf("Could not use %s data store: %s", conf.StoreType, errStore.Error()))
+			os.Exit(1)
+		}
 	} else {
-		metricTargetGroupUpdates.Inc()
-	}
-	fmt.Fprintf(w, "OK\n")
-}
-
-var RemoveTargetHandler = func(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	target := vars["target"]
-	targetGroup := vars["targetGroup"]
-
-	logger.Logger.Debug(fmt.Sprintf("Adding target %s to target list %s\n", target, targetGroup))
-	if err := dataStore.RemoveTargetFromGroup(targetGroup, target); err != nil {
-		metricTargetRemoveFailed.Inc()
-	} else {
-		metricTargetRemove.Inc()
-	}
-	fmt.Fprintf(w, "OK\n")
-}
-
-var AddTargetGroupLabelsHandler = func(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	targetGroup := vars["targetGroup"]
-	//labels := r.URL.Query().Get("lv_pairs")
-	qsargs := r.URL.Query()
-
-	dat := qsargs["labels"]
-	labels := map[string]string{}
-	for _, lvpair := range dat {
-		parts := strings.Split(lvpair, "=")
-		labels[parts[0]] = parts[1]
+		logger.Logger.Error(fmt.Sprintf("%s data store not implemented.", conf.StoreType))
+		os.Exit(1)
 	}
 
-	if err := dataStore.AddLabelsToGroup(targetGroup, labels); err != nil {
-		metricTargetGroupLabelsUpdatesFailed.Inc()
-	} else {
-		metricTargetGroupLabelsUpdates.Inc()
-	}
-	fmt.Fprintf(w, "OK\n")
-}
+	defer dataStore.Shutdown()
+	store.StoreInstance = &dataStore
 
-var RemoveTargetGroupLabelHandler = func(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	targetGroup := vars["targetGroup"]
-	label := vars["label"]
-
-	if err := dataStore.RemoveLabelFromGroup(targetGroup, label); err != nil {
-		metricTargetGroupLabelsUpdatesFailed.Inc()
-		http.Error(w, "ERROR", http.StatusInternalServerError)
-		return
-	}
-	metricTargetGroupLabelsUpdates.Inc()
-	fmt.Fprintf(w, "OK\n")
-}
-
-var ShowTargetsHandler = func(w http.ResponseWriter, req *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	res, err := dataStore.Serialize(false)
-	if err != nil {
-		fmt.Fprint(w, "[]\n")
-		return
-	}
-	fmt.Fprintf(w, "%s\n", res)
-}
-
-var ShowDebugTargetsHandler = func(w http.ResponseWriter, req *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	res, err := dataStore.Serialize(true)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	modifiedData := map[string]interface{}{}
-	err = json.Unmarshal([]byte(res), &modifiedData)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	response, err := json.MarshalIndent(modifiedData, " ", " ")
-	fmt.Fprintf(w, "%s\n", string(response))
-}
-
-var ShowDebugConfigHandler = func(w http.ResponseWriter, req *http.Request) {
-	w.Header().Set("Content-Type", "application/yaml")
-	// modifiedData := map[string]interface{}{}
-	// modifiedData["config"] = conf
-	// response, err := json.MarshalIndent(modifiedData, " ", " ")
-
-	printCnf, err := conf.Serialize()
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	fmt.Fprintf(w, "%s\n", printCnf)
 }
 
 // prometheusMiddleware implements mux.MiddlewareFunc.
@@ -222,17 +117,6 @@ func prometheusMiddleware(next http.Handler) http.Handler {
 
 func main() {
 
-	if *flagVersion {
-		fmt.Printf("prom-http-sd-server %s (Git hash: %s)\n", version.Version, version.CommitHash)
-		fmt.Printf("\tauthor: %s\n", version.Author)
-		os.Exit(0)
-	}
-
-	if !lib.FileExists(*flagConfPath) {
-		logger.Logger.Error(fmt.Sprintf("Error: Configuration '%s' not found\n", *flagConfPath))
-		os.Exit(1)
-	}
-
 	logger.Logger.Info("Starting prom-http-sd-server")
 
 	conf, err := config.NewConfig(*flagConfPath)
@@ -247,38 +131,18 @@ func main() {
 		)
 	}
 
-	interruptChan := make(chan os.Signal, 1)
-	shutdownChan := make(chan bool, 1)
-	signal.Notify(interruptChan, os.Interrupt, syscall.SIGTERM)
-
-	//ar dsInitErr error = nil
-
-	if conf.StoreType == "local" {
-		dataStore = store.NewBoltDBDataStore(conf.LocalDBConfig.TargetStorePath, shutdownChan)
-	} else if conf.StoreType == "consul" {
-		fmt.Println(conf.ConsulConfig.Host)
-		dataStore, err = store.NewConsulDataStore(conf.ConsulConfig.Host, conf.ConsulConfig.AllowStale, shutdownChan)
-		if err != nil {
-			logger.Logger.Error(fmt.Sprintf("Could not use %s data store: %s", conf.StoreType, err.Error()))
-			os.Exit(1)
-		}
-	} else {
-		logger.Logger.Error(fmt.Sprintf("%s data store not implemented.", conf.StoreType))
-		os.Exit(1)
-	}
-	defer dataStore.Shutdown()
-
+	config.GlobalConfig = conf
 	r := mux.NewRouter()
 
-	r.HandleFunc("/api/target/{targetGroup}/{target}", AddTargetHandler).Methods("POST")
-	r.HandleFunc("/api/target/{targetGroup}/{target}", RemoveTargetHandler).Methods("DELETE")
-	r.HandleFunc("/api/labels/update/{targetGroup}", AddTargetGroupLabelsHandler).Methods("POST")
-	r.HandleFunc("/api/labels/update/{targetGroup}/{label}", RemoveTargetGroupLabelHandler).Methods("DELETE")
-	r.HandleFunc("/api/targets", ShowTargetsHandler).Methods("GET")
-	r.HandleFunc("/debug_targets", ShowDebugTargetsHandler).Methods("GET")
-	r.HandleFunc("/debug_config", ShowDebugConfigHandler).Methods("GET")
+	r.HandleFunc("/api/target/{targetGroup}/{target}", handler.AddTargetHandler).Methods("POST")
+	r.HandleFunc("/api/target/{targetGroup}/{target}", handler.RemoveTargetHandler).Methods("DELETE")
+	r.HandleFunc("/api/labels/update/{targetGroup}", handler.AddTargetGroupLabelsHandler).Methods("POST")
+	r.HandleFunc("/api/labels/update/{targetGroup}/{label}", handler.RemoveTargetGroupLabelHandler).Methods("DELETE")
+	r.HandleFunc("/api/targets", handler.ShowTargetsHandler).Methods("GET")
+	r.HandleFunc("/debug_targets", handler.ShowDebugTargetsHandler).Methods("GET")
+	r.HandleFunc("/debug_config", handler.ShowDebugConfigHandler).Methods("GET")
 	r.Handle("/metrics", promhttp.Handler()).Methods("GET")
-	r.HandleFunc("/health", HealthHandler).Methods("GET")
+	r.HandleFunc("/health", handler.HealthHandler).Methods("GET")
 
 	listenAddr := fmt.Sprintf("%s:%d", conf.Host, conf.Port)
 	logger.Logger.Info("prom-http-sd-server is now ready for connections",

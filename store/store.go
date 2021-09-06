@@ -8,3 +8,5 @@ type DataStore interface {
 	Serialize(debug bool) (string, error)
 	Shutdown()
 }
+
+var StoreInstance *DataStore
