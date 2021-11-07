@@ -252,6 +252,38 @@ func (s *ConsulStore) RemoveTargetFromGroup(targetGroup, target string) error {
 	return nil
 }
 
+func (s *ConsulStore) GetTargetGroupLabels(targetGroup string) (*map[string]string, error) {
+
+	l, err := s.getLock(targetGroup, fmt.Sprintf("{\"set_at\": \"%s\"}", time.Now().String()))
+	defer l.unlock() // if not defered, lock acquision will wait indefinitely
+
+	key := s.getTargetKey(targetGroup)
+
+	pair, _, err := s.client.KV().Get(key, &consul.QueryOptions{AllowStale: s.allowStale})
+	if err != nil {
+		logger.Logger.Error("Could not get target group key",
+			zap.String("key", key),
+			zap.String("error", fmt.Sprintf("%s", err.Error())),
+		)
+		return nil, err
+	}
+
+	tg := &TargetGroup{}
+
+	if pair != nil {
+		if err := json.Unmarshal(pair.Value, tg); err != nil {
+			logger.Logger.Error("Could not unserialize target group data from consul KV store",
+				zap.String("error", err.Error()),
+			)
+		}
+	}
+
+	// b, _ := json.MarshalIndent(tg, "", "    ")
+	// res := string(b)
+	return &tg.Labels, nil
+
+}
+
 func (s *ConsulStore) AddLabelsToGroup(targetGroup string, labels map[string]string) error {
 
 	l, err := s.getLock(targetGroup, fmt.Sprintf("{\"set_at\": \"%s\"}", time.Now().String()))

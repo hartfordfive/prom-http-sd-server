@@ -84,6 +84,13 @@ func init() {
 	shutdownChan = make(chan bool, 1)
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGTERM)
 
+	cnf, err := config.NewConfig(*flagConfPath)
+	if err != nil {
+		logger.Logger.Error(fmt.Sprintf("%s", err))
+		os.Exit(1)
+	}
+	conf = cnf
+
 	var errStore error
 	if conf.StoreType == "local" {
 		dataStore = store.NewBoltDBDataStore(conf.LocalDBConfig.TargetStorePath, shutdownChan)
@@ -119,12 +126,6 @@ func main() {
 
 	logger.Logger.Info("Starting prom-http-sd-server")
 
-	conf, err := config.NewConfig(*flagConfPath)
-	if err != nil {
-		logger.Logger.Error(fmt.Sprintf("%s", err))
-		os.Exit(1)
-	}
-
 	if conf.LocalDBConfig != nil {
 		logger.Logger.Debug("Initializing data store",
 			zap.String("config_path", conf.LocalDBConfig.TargetStorePath),
@@ -136,6 +137,7 @@ func main() {
 
 	r.HandleFunc("/api/target/{targetGroup}/{target}", handler.AddTargetHandler).Methods("POST")
 	r.HandleFunc("/api/target/{targetGroup}/{target}", handler.RemoveTargetHandler).Methods("DELETE")
+	r.HandleFunc("/api/labels/{targetGroup}", handler.GetTargetGroupLabelsHandler).Methods("GET")
 	r.HandleFunc("/api/labels/update/{targetGroup}", handler.AddTargetGroupLabelsHandler).Methods("POST")
 	r.HandleFunc("/api/labels/update/{targetGroup}/{label}", handler.RemoveTargetGroupLabelHandler).Methods("DELETE")
 	r.HandleFunc("/api/targets", handler.ShowTargetsHandler).Methods("GET")

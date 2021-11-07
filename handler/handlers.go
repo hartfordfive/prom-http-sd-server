@@ -15,10 +15,6 @@ import (
 )
 
 var (
-	metricHttpDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "httpsdserver_req_duration_seconds",
-		Help: "Duration of HTTP requests.",
-	}, []string{"path"})
 	metricTargetGroupUpdates = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "httpsdserver_target_group_updates",
 		Help: "Number of times a target group has been updated.",
@@ -27,7 +23,6 @@ var (
 		Name: "httpsdserver_target_group_updates_failed",
 		Help: "Number of times a target group updated failed",
 	})
-
 	metricTargetRemove = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "httpsdserver_target_delete",
 		Help: "Number of times a target was deleted",
@@ -36,7 +31,6 @@ var (
 		Name: "httpsdserver_target_delete_failed",
 		Help: "Number of times the deletion of a target failed",
 	})
-
 	metricTargetGroupLabelsUpdates = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "httpsdserver_target_group_labels_updates",
 		Help: "Number of times the labels of a target group has been updated.",
@@ -52,7 +46,7 @@ var HealthHandler = func(w http.ResponseWriter, req *http.Request) {
 		TO COMPLETE:
 		This handler should only return OK if the underlying datastore is ready to accept connections
 	*/
-	fmt.Fprint(w, "OK\n")
+	fmt.Fprint(w, "OK")
 }
 
 var AddTargetHandler = func(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +62,7 @@ var AddTargetHandler = func(w http.ResponseWriter, r *http.Request) {
 	} else {
 		metricTargetGroupUpdates.Inc()
 	}
-	fmt.Fprintf(w, "OK\n")
+	fmt.Fprintf(w, "OK")
 }
 
 var RemoveTargetHandler = func(w http.ResponseWriter, r *http.Request) {
@@ -83,7 +77,7 @@ var RemoveTargetHandler = func(w http.ResponseWriter, r *http.Request) {
 	} else {
 		metricTargetRemove.Inc()
 	}
-	fmt.Fprintf(w, "OK\n")
+	fmt.Fprintf(w, "OK")
 }
 
 var AddTargetGroupLabelsHandler = func(w http.ResponseWriter, r *http.Request) {
@@ -105,7 +99,24 @@ var AddTargetGroupLabelsHandler = func(w http.ResponseWriter, r *http.Request) {
 	} else {
 		metricTargetGroupLabelsUpdates.Inc()
 	}
-	fmt.Fprintf(w, "OK\n")
+	fmt.Fprintf(w, "OK")
+}
+
+var GetTargetGroupLabelsHandler = func(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	targetGroup := vars["targetGroup"]
+
+	dataStore := *store.StoreInstance
+	dat, err := dataStore.GetTargetGroupLabels(targetGroup)
+
+	if err != nil {
+		fmt.Fprint(w, "[]\n")
+		return
+	}
+
+	b, _ := json.MarshalIndent(dat, "", "    ")
+	res := string(b)
+	fmt.Fprintf(w, "%s\n", res)
 }
 
 var RemoveTargetGroupLabelHandler = func(w http.ResponseWriter, r *http.Request) {
@@ -120,7 +131,7 @@ var RemoveTargetGroupLabelHandler = func(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	metricTargetGroupLabelsUpdates.Inc()
-	fmt.Fprintf(w, "OK\n")
+	fmt.Fprintf(w, "OK")
 }
 
 var ShowTargetsHandler = func(w http.ResponseWriter, req *http.Request) {

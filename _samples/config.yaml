@@ -1,0 +1,6 @@
+store_type: consul # local, consul
+consul_config:
+  host: 127.0.0.1:8500
+  allow_stale: true
+server_host: "0.0.0.0"
+server_port: 80

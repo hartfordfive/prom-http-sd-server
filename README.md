@@ -2,7 +2,8 @@
 
 ## Description
 
-The prom-http-sd-server allows users to dynamcially add/remove prometheus targets and labels to a target group and expose it to a [Prometheus HTTP SD](https://prometheus.io/docs/prometheus/latest/http_sd/) job.  All data is persisted on local disk.  Currently only the local data store is supported.
+The prom-http-sd-server allows users to dynamcially add/remove prometheus targets and labels to a target group and expose it to a [Prometheus HTTP SD](https://prometheus.io/docs/prometheus/latest/http_sd/) job.  At this time, only the **local** and **consul** data stores are supported although there are plans to add others in the near future.
+
 
 ## Usage
 
@@ -26,32 +27,34 @@ Running the server:
 
 ## API Methods
 
-### POST /api/target/<TARGET_GROUP>/<TARGET>
-* Adds the new target to the specified target group
+### Targets
 
-### DELETE /api/target/<TARGET_GROUP>/<TARGET>"
-* Removes the target from the specified target group
+* **GET /api/targets**
+    * Return the list of targets (formated in expected HTTP SD format)
+* **POST /api/target/<TARGET_GROUP>/<TARGET>**
+    * Adds the new target to the specified target group
+* **DELETE /api/target/<TARGET_GROUP>/<TARGET>**
+    * Removes the target from the specified target group
 
-### POST /api/labels/update/<TARGET_GROUP>?labels=<LABEL>=<VALUE>[&labels=<LABEL>=<VALUE>]
-* Add one or more label/value pairs to the specified target group
+### Labels
 
-### DELETE /api/labels/update/<TARGET_GROUP>/<LABEL_NAME>
-* Delete the specified label from the target group
+* **GET /api/labels/<TARGET_GROUP>**
+    * Get the list of labels for a given target group
+* **POST /api/labels/update/<TARGET_GROUP>?labels=<LABEL>=<VALUE>[&labels=<LABEL>=<VALUE>]**
+    * Add one or more label/value pairs to the specified target group
+* **DELETE /api/labels/update/<TARGET_GROUP>/<LABEL_NAME>**
+    * Delete the specified label from the target group
 
-### GET /api/targets
-* Return the list of targets (formated in expected HTTP SD format)
+### Miscelaneous
 
-### GET /metrics
-* Returns the list of prometheus metrics for the exporter
-
-### GET /health
-*  Returns the current health status of the exporter
-
-### GET /debug_targets
-* Returns the current list of targets along with the names of the target groups
-
-### GET /debug_config
-* Returns the current config which has been used to start the exporter
+* **GET /metrics**
+    * Returns the list of prometheus metrics for the exporter
+* **GET /health**
+    *  Returns the current health status of the exporter
+* **GET /debug_targets**
+    * Returns the current list of targets along with the names of the target groups
+* **GET /debug_config**
+    * Returns the current config which has been used to start the exporter
 
 
 ## Building
