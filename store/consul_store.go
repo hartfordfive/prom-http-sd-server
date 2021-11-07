@@ -396,9 +396,43 @@ func (s *ConsulStore) Serialize(debug bool) (string, error) {
 		return "", nil
 	}
 
-	targetGroupList := []TargetGroup{}
+	if !debug {
+		targetGroupList := []TargetGroup{}
+
+		var keyParts []string
+
+		for _, k := range keys {
+
+			logger.Logger.Info("Got key",
+				zap.String("key", k),
+			)
+			pair, _, err := s.client.KV().Get(k, &consul.QueryOptions{AllowStale: s.allowStale})
+			if err != nil {
+				panic(err)
+			}
+
+			if pair != nil {
+				keyParts = strings.Split(k, "/")
+				tg := &TargetGroup{Name: keyParts[len(keyParts)-1]}
+				if err := json.Unmarshal(pair.Value, tg); err != nil {
+					logger.Logger.Error("Could not unserialize target group data from consul KV store",
+						zap.String("error", err.Error()),
+					)
+					continue
+				}
+				targetGroupList = append(targetGroupList, *tg)
+			}
+		}
+
+		res, _ := json.MarshalIndent(targetGroupList, "", "    ")
+		return string(res), nil
+	}
+
+	targetGroupList := map[string][]TargetGroup{}
 
 	var keyParts []string
+
+	tgList := []TargetGroup{}
 
 	for _, k := range keys {
 
@@ -412,19 +446,22 @@ func (s *ConsulStore) Serialize(debug bool) (string, error) {
 
 		if pair != nil {
 			keyParts = strings.Split(k, "/")
-			tg := &TargetGroup{Name: keyParts[len(keyParts)-1]}
+			groupName := keyParts[len(keyParts)-1]
+			tg := &TargetGroup{Name: groupName}
 			if err := json.Unmarshal(pair.Value, tg); err != nil {
 				logger.Logger.Error("Could not unserialize target group data from consul KV store",
 					zap.String("error", err.Error()),
 				)
 				continue
 			}
-			targetGroupList = append(targetGroupList, *tg)
+			tgList = append(tgList, *tg)
+			targetGroupList[groupName] = tgList
 		}
 	}
 
 	res, _ := json.MarshalIndent(targetGroupList, "", "    ")
 	return string(res), nil
+
 }
 
 func (s *ConsulStore) Shutdown() {

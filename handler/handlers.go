@@ -153,12 +153,18 @@ var ShowDebugTargetsHandler = func(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	fmt.Println(res)
+
 	modifiedData := map[string]interface{}{}
 	err = json.Unmarshal([]byte(res), &modifiedData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	fmt.Println(modifiedData)
+
 	response, err := json.MarshalIndent(modifiedData, " ", " ")
 	fmt.Fprintf(w, "%s\n", string(response))
 }
