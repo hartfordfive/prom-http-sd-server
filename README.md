@@ -34,7 +34,9 @@ Running the server:
 * **POST /api/target/<TARGET_GROUP>/<TARGET>**
     * Adds the new target to the specified target group
 * **DELETE /api/target/<TARGET_GROUP>/<TARGET>**
-    * Removes the target from the specified target group
+    * Remove the target from the specified target group
+* * **DELETE /api/target/<TARGET_GROUP>**
+    * Delete a given target group along with all of its hosts and labels
 
 ### Labels
 
@@ -48,13 +50,21 @@ Running the server:
 ### Miscelaneous
 
 * **GET /metrics**
-    * Returns the list of prometheus metrics for the exporter
+    * Return the list of prometheus metrics for the exporter
 * **GET /health**
-    *  Returns the current health status of the exporter
+    *  Return the current health status of the exporter
 * **GET /debug_targets**
-    * Returns the current list of targets along with the names of the target groups
+    * Return the current list of targets along with the names of the target groups
 * **GET /debug_config**
-    * Returns the current config which has been used to start the exporter
+    * Return the current config which has been used to start the exporter
+
+
+## Available Data Stores
+
+Currently, the following data stores are available although others are planned to be added in the near future:
+
+* local : Uses a local-disk based file backed by BoltDB
+* consul : Uses consul as the data store via the KV API.  Please note the consul KV store has a default key value size limit of 512KB. (See [this](https://www.consul.io/docs/troubleshoot/faq#q-what-is-the-per-key-value-size-limitation-for-consul-s-key-value-store))
 
 
 ## Building
@@ -72,10 +82,6 @@ Run the following docker command to build the image
 ```
 docker build -t $(cat VERSION.txt) --build-arg VERSION=$(cat VERSION.txt) .
 ```
-
-## Pre-built Docker Images
-
-
 
 
 ## License
