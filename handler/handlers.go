@@ -80,6 +80,20 @@ var RemoveTargetHandler = func(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "OK")
 }
 
+var RemoveTargetGroupHandler = func(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	targetGroup := vars["targetGroup"]
+
+	logger.Logger.Debug(fmt.Sprintf("Removing target group %s\n", targetGroup))
+	dataStore := *store.StoreInstance
+	if err := dataStore.RemoveTargetGroup(targetGroup); err != nil {
+		metricTargetRemoveFailed.Inc()
+	} else {
+		metricTargetRemove.Inc()
+	}
+	fmt.Fprintf(w, "OK")
+}
+
 var AddTargetGroupLabelsHandler = func(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	targetGroup := vars["targetGroup"]

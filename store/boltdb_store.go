@@ -76,6 +76,14 @@ func (s *BoltDBStore) RemoveTargetFromGroup(targetGroup, target string) error {
 	})
 }
 
+func (s *BoltDBStore) RemoveTargetGroup(targetGroup string) error {
+	bucketName := fmt.Sprintf("targets:%s", targetGroup)
+	return s.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(bucketName))
+		return bucket.DeleteBucket([]byte(bucketName))
+	})
+}
+
 func (s *BoltDBStore) AddLabelsToGroup(targetGroup string, labels map[string]string) error {
 	bucketName := fmt.Sprintf("labels:%s", targetGroup)
 	err := s.db.Update(func(tx *bolt.Tx) error {

@@ -252,6 +252,26 @@ func (s *ConsulStore) RemoveTargetFromGroup(targetGroup, target string) error {
 	return nil
 }
 
+func (s *ConsulStore) RemoveTargetGroup(targetGroup string) error {
+
+	l, err := s.getLock(targetGroup, fmt.Sprintf("{\"set_at\": \"%s\"}", time.Now().String()))
+	defer l.unlock() // if not defered, lock acquision will wait indefinitely
+
+	key := s.getTargetKey(targetGroup)
+
+	_, err = s.client.KV().Delete(key, &consul.WriteOptions{})
+	if err != nil {
+		logger.Logger.Error("Could note delete target group",
+			zap.String("key", key),
+			zap.String("error", fmt.Sprintf("%s", err.Error())),
+		)
+		return err
+	}
+
+	return nil
+
+}
+
 func (s *ConsulStore) GetTargetGroupLabels(targetGroup string) (*map[string]string, error) {
 
 	l, err := s.getLock(targetGroup, fmt.Sprintf("{\"set_at\": \"%s\"}", time.Now().String()))
