@@ -45,7 +45,7 @@ var (
 func init() {
 
 	flagConfPath = flag.String(
-		"conf-path",
+		"conf",
 		"/etc/prom-http-sd-server/prom-http-sd-server.conf",
 		"When using local storage, path to storage dir.",
 	)
@@ -137,6 +137,7 @@ func main() {
 
 	r.HandleFunc("/api/target/{targetGroup}/{target}", handler.AddTargetHandler).Methods("POST")
 	r.HandleFunc("/api/target/{targetGroup}/{target}", handler.RemoveTargetHandler).Methods("DELETE")
+	r.HandleFunc("/api/target/{targetGroup}", handler.RemoveTargetGroupHandler).Methods("DELETE")
 	r.HandleFunc("/api/labels/{targetGroup}", handler.GetTargetGroupLabelsHandler).Methods("GET")
 	r.HandleFunc("/api/labels/update/{targetGroup}", handler.AddTargetGroupLabelsHandler).Methods("POST")
 	r.HandleFunc("/api/labels/update/{targetGroup}/{label}", handler.RemoveTargetGroupLabelHandler).Methods("DELETE")
