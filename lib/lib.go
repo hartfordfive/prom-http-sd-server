@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"time"
 )
 
@@ -116,4 +117,26 @@ func CheckHttpRespRange(start, end int, url string, timeout int) bool {
 		return false
 	}
 	return res.StatusCode >= start && res.StatusCode <= end
+}
+
+func IsValidLabelName(lblName string) bool {
+
+	regex := `^[a-zA-Z_][a-zA-Z0-9_]*$`
+	match, _ := regexp.MatchString(regex, lblName)
+	if match {
+		return true
+	}
+	return false
+
+}
+
+func IsValidTargetName(targetName string) bool {
+
+	regex := `^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])(:[0-9]+)?$`
+	match, _ := regexp.MatchString(regex, targetName)
+	if match {
+		return true
+	}
+	return false
+
 }

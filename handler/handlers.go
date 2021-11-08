@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/hartfordfive/prom-http-sd-server/config"
+	"github.com/hartfordfive/prom-http-sd-server/lib"
 	"github.com/hartfordfive/prom-http-sd-server/logger"
 	"github.com/hartfordfive/prom-http-sd-server/store"
 	"github.com/prometheus/client_golang/prometheus"
@@ -53,6 +54,10 @@ var AddTargetHandler = func(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	target := vars["target"]
 	targetGroup := vars["targetGroup"]
+
+	if !lib.IsValidTargetName(target) {
+		http.Error(w, "ERROR: Target name is invalid", http.StatusInternalServerError)
+	}
 
 	dataStore := *store.StoreInstance
 
@@ -104,6 +109,10 @@ var AddTargetGroupLabelsHandler = func(w http.ResponseWriter, r *http.Request) {
 	labels := map[string]string{}
 	for _, lvpair := range dat {
 		parts := strings.Split(lvpair, "=")
+		if !lib.IsValidLabelName(parts[0]) {
+			msg := fmt.Sprintf("ERROR: Label name '%s' is invalid", parts[0])
+			http.Error(w, msg, http.StatusInternalServerError)
+		}
 		labels[parts[0]] = parts[1]
 	}
 
