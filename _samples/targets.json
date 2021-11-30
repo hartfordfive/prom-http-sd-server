@@ -1,0 +1,73 @@
+{
+    "nginx_webserver" : {
+        "targets" : [
+            "10.0.4.101:9555",
+            "10.0.4.102:9555",
+            "10.0.4.103:9555",
+            "10.0.4.104:9555",
+            "10.0.4.105:9555"
+        ],
+        "labels": {
+            "__meta_type" : "infrastructure",
+            "__meta_virtualization" : "vmware",
+            "__meta_server_type": "virtual"
+        }
+    },
+    "node_exporter" : {
+        "targets" : [
+            "10.0.4.101:9600",
+            "10.0.4.102:9600",
+            "10.0.4.103:9600",
+            "10.0.4.104:9600",
+            "10.0.4.105:9600",
+            "10.0.3.101:9600",
+            "10.0.3.102:9600",
+            "10.0.3.103:9600",
+            "10.10.3.101:9600",
+            "10.10.3.102:9600",
+            "10.10.3.103:9600",
+            "10.20.3.101:9600",
+            "10.20.3.102:9600",
+            "10.20.3.103:9600"
+        ],
+        "labels": {
+            "__meta_type" : "infrastructure"
+        }
+    },
+    "haprox_amer" : { 
+        "targets" : [
+            "10.0.3.101:9500",
+            "10.0.3.102:9500",
+            "10.0.3.103:9500"
+        ],
+        "labels": {
+            "__meta_type": "infrastructure",
+            "__meta_server_type": "physical",
+            "__meta_region": "amer"
+        }
+    },
+    "haprox_emea" : {
+        "targets": [
+            "10.10.3.101:9500",
+            "10.10.3.102:9500",
+            "10.10.3.103:9500"
+        ],
+        "labels": {
+            "__meta_type": "infrastructure",
+            "__meta_server_type": "physical",
+            "__meta_region": "emea"
+        }
+    },
+    "haprox_apac" :  {
+        "targets": [
+            "10.20.3.101:9500",
+            "10.20.3.102:9500",
+            "10.20.3.103:9500"
+        ],
+        "labels": {
+            "__meta_type": "infrastructure",
+            "__meta_server_type": "physical",
+            "__meta_region": "apac"
+        }
+    }
+}

@@ -5,13 +5,24 @@ GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 BASE_NAME=prom-http-sd-server
 GO_DEP_FETCH=go mod vendor 
-UNAME=$(shell uname)
-BUILD_DIR=build
-GITHASH=$(shell sh -c 'git rev-parse --verify HEAD')
+ifeq ($(DOCKER), 1)
+	UNAME='linux'
+else
+	UNAME=$(shell uname)
+endif
+ifneq ($(DOCKER), 1)
+	BUILD_DIR=_build
+else
+	BUILD_DIR=.
+endif
+
+ifneq ($(DOCKER), 1)
+	GITHASH=$(shell sh -c 'git rev-parse --verify HEAD')
+endif
 BUILDDATE=$(shell sh -c 'date +%Y-%m-%d')
 VERSION=$(shell sh -c 'cat VERSION.txt')
 PACKAGE_BASE=github.com/hartfordfive/${BASE_NAME}
-ADD_VERSION_OS_ARCH=1
+ADD_VERSION_OS_ARCH=0
 
 ifeq ($(UNAME), Linux)
 	OS=linux
@@ -43,12 +54,17 @@ build-release: all
 build-debug:
 	CGO_ENABLED=0 GOOS=${OS} GOARCH=amd64 $(GOBUILD) -ldflags "-X $(PACKAGE_BASE)/version.CommitHash=$(GITHASH) -X $(PACKAGE_BASE)/version.BuildDate=${BUILDDATE} -X ${PACKAGE_BASE}/version.Version=${VERSION}" -o ${BUILD_DIR}/$(BASE_NAME)-$(VERSION)-${OS}-$(ARCH)-debug -v
 
+build-docker:
+	docker build -t prom-http-sd-server:$(VERSION) --build-arg VERSION=$(VERSION) -f Dockerfile .
+
 test: 
 	$(GOTEST) -v ./...
 
 clean: 
 	$(GOCLEAN)
+ifneq ($(DOCKER), 1)
 	rm -rf ${BUILD_DIR}*
+endif
 
 cleanplugins:
 	$(GOCLEAN)

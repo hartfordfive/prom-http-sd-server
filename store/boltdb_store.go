@@ -76,6 +76,14 @@ func (s *BoltDBStore) RemoveTargetFromGroup(targetGroup, target string) error {
 	})
 }
 
+func (s *BoltDBStore) RemoveTargetGroup(targetGroup string) error {
+	bucketName := fmt.Sprintf("targets:%s", targetGroup)
+	return s.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(bucketName))
+		return bucket.DeleteBucket([]byte(bucketName))
+	})
+}
+
 func (s *BoltDBStore) AddLabelsToGroup(targetGroup string, labels map[string]string) error {
 	bucketName := fmt.Sprintf("labels:%s", targetGroup)
 	err := s.db.Update(func(tx *bolt.Tx) error {
@@ -124,7 +132,7 @@ func (s *BoltDBStore) getTargetGroups() ([]string, error) {
 	return buckets, nil
 }
 
-func (s *BoltDBStore) getTargetGroupLabels(targetGroup string) (*map[string]string, error) {
+func (s *BoltDBStore) GetTargetGroupLabels(targetGroup string) (*map[string]string, error) {
 
 	labels := map[string]string{}
 	err := s.db.View(func(tx *bolt.Tx) error {
@@ -221,7 +229,7 @@ func (s *BoltDBStore) Serialize(debug bool) (string, error) {
 				}
 				tg.Targets = targets
 				logger.Logger.Debug(fmt.Sprintf("Getting labels for target group: labels:%s", strings.Split(tgName, ":")[1]))
-				labels, _ := s.getTargetGroupLabels(fmt.Sprintf("labels:%s", strings.Split(tgName, ":")[1]))
+				labels, _ := s.GetTargetGroupLabels(fmt.Sprintf("labels:%s", strings.Split(tgName, ":")[1]))
 				tg.Labels = *labels
 
 				data = append(data, tg)
@@ -252,7 +260,7 @@ func (s *BoltDBStore) Serialize(debug bool) (string, error) {
 			}
 			tg.Targets = targets
 			logger.Logger.Debug(fmt.Sprintf("Getting labels for target group: labels:%s", strings.Split(tgName, ":")[1]))
-			labels, _ := s.getTargetGroupLabels(fmt.Sprintf("labels:%s", strings.Split(tgName, ":")[1]))
+			labels, _ := s.GetTargetGroupLabels(fmt.Sprintf("labels:%s", strings.Split(tgName, ":")[1]))
 			tg.Labels = *labels
 
 			dataDebug["targets"][strings.Split(tgName, ":")[1]] = tg
