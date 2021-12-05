@@ -11,12 +11,11 @@ import (
 var GlobalConfig *Config
 
 type Config struct {
-	StoreType           string               `yaml:"store_type" json:"store_type"`
-	Host                string               `yaml:"server_host" json:"server_host"`
-	Port                int                  `yaml:"server_port" json:"server_port"`
-	LocalDBConfig       *BoltDBConfig        `yaml:"local_config" json:"local_config"`
-	ConsulConfig        *ConsulConfig        `yaml:"consul_config" json:"consul_config"`
-	ElasticsearchConfig *ElasticsearchConfig `yaml:"elasticsearch_config" json:"elasticsearch_config"`
+	StoreType     string        `yaml:"store_type" json:"store_type"`
+	Host          string        `yaml:"server_host" json:"server_host"`
+	Port          int           `yaml:"server_port" json:"server_port"`
+	LocalDBConfig *BoltDBConfig `yaml:"local_config" json:"local_config"`
+	ConsulConfig  *ConsulConfig `yaml:"consul_config" json:"consul_config"`
 }
 
 func NewConfig(configPath string) (*Config, error) {
