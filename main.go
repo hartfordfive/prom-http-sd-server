@@ -93,8 +93,10 @@ func init() {
 
 	var errStore error
 	if conf.StoreType == "local" {
+		logger.Logger.Info("starting local store")
 		dataStore = store.NewBoltDBDataStore(conf.LocalDBConfig.TargetStorePath, shutdownChan)
 	} else if conf.StoreType == "consul" {
+		logger.Logger.Info("starting consul store")
 		fmt.Println(conf.ConsulConfig.Host)
 		dataStore, errStore = store.NewConsulDataStore(conf.ConsulConfig.Host, conf.ConsulConfig.AllowStale, shutdownChan)
 		if errStore != nil {
