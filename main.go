@@ -90,25 +90,24 @@ func init() {
 		os.Exit(1)
 	}
 	conf = cnf
+}
 
-	var errStore error
-	if conf.StoreType == "local" {
-		logger.Logger.Info("starting local store")
-		dataStore = store.NewBoltDBDataStore(conf.LocalDBConfig.TargetStorePath, shutdownChan)
-	} else if conf.StoreType == "consul" {
-		logger.Logger.Info("starting consul store")
-		fmt.Println(conf.ConsulConfig.Host)
-		dataStore, errStore = store.NewConsulDataStore(conf.ConsulConfig.Host, conf.ConsulConfig.AllowStale, shutdownChan)
-		if errStore != nil {
-			logger.Logger.Error(fmt.Sprintf("Could not use %s data store: %s", conf.StoreType, errStore.Error()))
-			os.Exit(1)
-		}
-	} else {
-		logger.Logger.Error(fmt.Sprintf("%s data store not implemented.", conf.StoreType))
-		os.Exit(1)
+// initDataStore creates a DataStore of any type supported by conf.StoreType
+// Once, created the datastore is properly initialised.
+// Finally, the store.StoreInstance gloabl variable is set to the newly created DataStore instance.
+func initDataStore(storeType string) (err error) {
+	switch storeType {
+	case "local":
+		store.StoreInstance, err = store.NewBoltDBDataStore(conf.LocalDBConfig.TargetStorePath, shutdownChan)
+
+	case "consul":
+		store.StoreInstance, err = store.NewConsulDataStore(conf.ConsulConfig.Host, conf.ConsulConfig.AllowStale, shutdownChan)
+
+	default:
+		err = fmt.Errorf("%s data store not implemented.", conf.StoreType)
 	}
 
-	store.StoreInstance = &dataStore
+	return
 }
 
 // prometheusMiddleware implements mux.MiddlewareFunc.
@@ -126,6 +125,7 @@ func main() {
 
 	logger.Logger.Info("Starting prom-http-sd-server")
 
+	// Should probably be changed too, we want to know about data store inits
 	if conf.LocalDBConfig != nil {
 		logger.Logger.Debug("Initializing data store",
 			zap.String("config_path", conf.LocalDBConfig.TargetStorePath),
@@ -133,8 +133,17 @@ func main() {
 	}
 
 	config.GlobalConfig = conf
-	r := mux.NewRouter()
 
+	// Init datastore
+	logger.Logger.Sugar().Infof("Starting datastore (type: %s)...", conf.StoreType)
+	err := initDataStore(conf.StoreType)
+	if err != nil {
+		logger.Logger.Error(err.Error())
+		os.Exit(1)
+	}
+
+	// Init web server
+	r := mux.NewRouter()
 	r.HandleFunc("/api/target/{targetGroup}/{target}", handler.AddTargetHandler).Methods("POST")
 	r.HandleFunc("/api/target/{targetGroup}/{target}", handler.RemoveTargetHandler).Methods("DELETE")
 	r.HandleFunc("/api/target/{targetGroup}", handler.RemoveTargetGroupHandler).Methods("DELETE")

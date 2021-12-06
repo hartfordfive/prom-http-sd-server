@@ -11,4 +11,4 @@ type DataStore interface {
 	Shutdown()
 }
 
-var StoreInstance *DataStore
+var StoreInstance DataStore

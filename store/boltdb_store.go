@@ -16,11 +16,10 @@ type BoltDBStore struct {
 	db *bolt.DB
 }
 
-func NewBoltDBDataStore(filePath string, shutdownNotify chan bool) *BoltDBStore {
+func NewBoltDBDataStore(filePath string, shutdownNotify chan bool) (*BoltDBStore, error) {
 	db, err := bolt.Open(filePath, 0600, &bolt.Options{Timeout: 2 * time.Second})
 	if err != nil {
-		logger.Logger.Error("Could not open database", zap.String("file", filePath), zap.String("message", fmt.Sprintf("%s", err)))
-		return nil
+		return nil, err
 	}
 	s := &BoltDBStore{
 		db: db,
@@ -41,7 +40,7 @@ func NewBoltDBDataStore(filePath string, shutdownNotify chan bool) *BoltDBStore 
 		}
 	}()
 
-	return s
+	return s, err
 }
 
 func (s *BoltDBStore) Shutdown() {

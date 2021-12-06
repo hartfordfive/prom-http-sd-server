@@ -59,7 +59,7 @@ var AddTargetHandler = func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "ERROR: Target name is invalid", http.StatusInternalServerError)
 	}
 
-	dataStore := *store.StoreInstance
+	dataStore := store.StoreInstance
 
 	logger.Logger.Debug(fmt.Sprintf("Adding target %s to target list %s\n", target, targetGroup))
 	if err := dataStore.AddTargetToGroup(targetGroup, target); err != nil {
@@ -78,7 +78,7 @@ var RemoveTargetHandler = func(w http.ResponseWriter, r *http.Request) {
 	targetGroup := vars["targetGroup"]
 
 	logger.Logger.Debug(fmt.Sprintf("Removing target %s from target list %s\n", target, targetGroup))
-	dataStore := *store.StoreInstance
+	dataStore := store.StoreInstance
 	if err := dataStore.RemoveTargetFromGroup(targetGroup, target); err != nil {
 		logger.Logger.Debug(fmt.Sprintf("Couldn't remove target %s from target list %s\n", target, targetGroup))
 		logger.Logger.Error(err.Error())
@@ -94,7 +94,7 @@ var RemoveTargetGroupHandler = func(w http.ResponseWriter, r *http.Request) {
 	targetGroup := vars["targetGroup"]
 
 	logger.Logger.Debug(fmt.Sprintf("Removing target group %s\n", targetGroup))
-	dataStore := *store.StoreInstance
+	dataStore := store.StoreInstance
 	if err := dataStore.RemoveTargetGroup(targetGroup); err != nil {
 		metricTargetRemoveFailed.Inc()
 	} else {
@@ -120,7 +120,7 @@ var AddTargetGroupLabelsHandler = func(w http.ResponseWriter, r *http.Request) {
 		labels[parts[0]] = parts[1]
 	}
 
-	dataStore := *store.StoreInstance
+	dataStore := store.StoreInstance
 	if err := dataStore.AddLabelsToGroup(targetGroup, labels); err != nil {
 		metricTargetGroupLabelsUpdatesFailed.Inc()
 	} else {
@@ -133,7 +133,7 @@ var GetTargetGroupLabelsHandler = func(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	targetGroup := vars["targetGroup"]
 
-	dataStore := *store.StoreInstance
+	dataStore := store.StoreInstance
 	dat, err := dataStore.GetTargetGroupLabels(targetGroup)
 
 	if err != nil {
@@ -151,7 +151,7 @@ var RemoveTargetGroupLabelHandler = func(w http.ResponseWriter, r *http.Request)
 	targetGroup := vars["targetGroup"]
 	label := vars["label"]
 
-	dataStore := *store.StoreInstance
+	dataStore := store.StoreInstance
 	if err := dataStore.RemoveLabelFromGroup(targetGroup, label); err != nil {
 		metricTargetGroupLabelsUpdatesFailed.Inc()
 		http.Error(w, "ERROR", http.StatusInternalServerError)
@@ -163,7 +163,7 @@ var RemoveTargetGroupLabelHandler = func(w http.ResponseWriter, r *http.Request)
 
 var ShowTargetsHandler = func(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	dataStore := *store.StoreInstance
+	dataStore := store.StoreInstance
 	res, err := dataStore.Serialize(false)
 	if err != nil {
 		fmt.Fprint(w, "[]\n")
@@ -174,7 +174,7 @@ var ShowTargetsHandler = func(w http.ResponseWriter, req *http.Request) {
 
 var ShowDebugTargetsHandler = func(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	dataStore := *store.StoreInstance
+	dataStore := store.StoreInstance
 	res, err := dataStore.Serialize(true)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
