@@ -63,6 +63,8 @@ var AddTargetHandler = func(w http.ResponseWriter, r *http.Request) {
 
 	logger.Logger.Debug(fmt.Sprintf("Adding target %s to target list %s\n", target, targetGroup))
 	if err := dataStore.AddTargetToGroup(targetGroup, target); err != nil {
+		logger.Logger.Debug(fmt.Sprintf("Couldn't add target %s to target list %s\n", target, targetGroup))
+		logger.Logger.Error(err.Error())
 		metricTargetGroupUpdatesFailed.Inc()
 	} else {
 		metricTargetGroupUpdates.Inc()
@@ -75,9 +77,11 @@ var RemoveTargetHandler = func(w http.ResponseWriter, r *http.Request) {
 	target := vars["target"]
 	targetGroup := vars["targetGroup"]
 
-	logger.Logger.Debug(fmt.Sprintf("Adding target %s to target list %s\n", target, targetGroup))
+	logger.Logger.Debug(fmt.Sprintf("Removing target %s from target list %s\n", target, targetGroup))
 	dataStore := *store.StoreInstance
 	if err := dataStore.RemoveTargetFromGroup(targetGroup, target); err != nil {
+		logger.Logger.Debug(fmt.Sprintf("Couldn't remove target %s from target list %s\n", target, targetGroup))
+		logger.Logger.Error(err.Error())
 		metricTargetRemoveFailed.Inc()
 	} else {
 		metricTargetRemove.Inc()
