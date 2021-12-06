@@ -63,7 +63,7 @@ func init() {
 		log, loggerErr = zap.NewDevelopment() // or NewExample, NewProduction, or NewDevelopment
 	}
 	if loggerErr != nil {
-		fmt.Errorf("Could not initialize logger: %s", loggerErr)
+		fmt.Printf("Could not initialize logger: %s\n", loggerErr)
 		os.Exit(1)
 	}
 	logger.Logger = log
@@ -108,9 +108,7 @@ func init() {
 		os.Exit(1)
 	}
 
-	defer dataStore.Shutdown()
 	store.StoreInstance = &dataStore
-
 }
 
 // prometheusMiddleware implements mux.MiddlewareFunc.
@@ -173,9 +171,10 @@ func main() {
 		close(shutdownChan)
 	}
 
+	dataStore.Shutdown()
+
 	if err := srv.Shutdown(context.TODO()); err != nil {
 		panic(err)
 	}
 	logger.Logger.Info("prom-http-sd-server shutdown complete")
-
 }
